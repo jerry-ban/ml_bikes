@@ -135,3 +135,17 @@ Road_df_count= Road_df.groupby(["start_lat", "start_long", "end_lat", "end_long"
 #plt.show()
 
 logging.info("weather data processing")
+Weather.plot(x="date", y="max_sea_level_pressure_inches")
+zip_city_match = Station_trip.groupby(["zip_code", "city"]).size().reset_index(name="count")
+Weather["city"] = Weather["zip_code"].map(dict(zip(zip_city_match["zip_code"], zip_city_match["city"])))
+
+
+logging.info("weather data processing")
+Station_name= Station[["name", "city"]]
+Station_name.clumns=["start_station_name","city"]
+
+Trip_num= pd.merge(Trip, Station_name, how = "inner", left_on = "start_station_name", right_on="name")
+Trip_num = Trip_num.groupby(["date", "city", "start_hour"]).size().reset_index(name="count")
+
+df_v2 = pd.merge(Trip_num, Weather, how = "left", on =["date","city"])
+df_v2["count"].plot.hist()

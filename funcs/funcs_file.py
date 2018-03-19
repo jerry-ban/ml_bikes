@@ -1,6 +1,6 @@
 __author__ = 'jerry.ban'
 
-
+from pandas.tseries.holiday import USFederalHolidayCalendar as calendar
 import pandas as pd
 import numpy as np
 import sys
@@ -62,11 +62,34 @@ def process_df_date_col_trip(df, stage =1):
 
 def process_df_date_col_station(df, stage =1):
     df["installation_date"] = pd.to_datetime(df["installation_date"],format="%m/%d/%Y")
+
     return df
 
 def process_df_date_col_weather(df, stage =1):
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = pd.to_datetime(df["date"],format="%m/%d/%Y")
     df["events"].fillna("Normal", inplace=True) #set missing value as normal
+    df['events'].replace("rain", "Rain", inplace=True)
+
+    df['precipitation_inches'].replace("T", np.nan, inplace=True)
+    df['precipitation_inches'] = df['precipitation_inches'].astype(float)
+    df= pd.merge(df, df.groupby('date')['precipitation_inches'].mean().reset_index(name="precipitation_median"),
+                             how = "inner", on = "date")
+    df.loc[df['precipitation_inches'].isnull(),"precipitation_inches"] = df["precipitation_median"]
+    df['precipitation_inches'].fillna(0, inplace=True)
+
+    df = pd.merge(df, df.groupby('date')['max_gust_speed_mph'].mean().reset_index(name="gust_median"),how="inner", on="date")
+    df.loc[df['max_gust_speed_mph'].isnull(),"max_gust_speed_mph"] = df["gust_median"]
+    df['max_gust_speed_mph'].fillna(0, inplace=True)
+
+    df["month"] = df["date"].dt.month
+    df["wday"] = df["date"].dt.weekday_name
+    df["year"] = df["date"].dt.year
+    df["day"] = df["date"].dt.day
+    cal = calendar()
+    holidays = cal.holidays(start=df["date"].min(), end=df["date"].max(), return_name=True)
+    df['isholiday'] = df['date'].isin(holidays.index)
+
+    #weather = weather %>% group_by(max_wind_Speed_mph) %>% mutate(gust_median = median(max_gust_speed_mph, na.rm=T))
     return df
 
 def process_df_date_col(df):
