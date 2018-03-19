@@ -6,10 +6,11 @@ import funcs.funcs_file as iofiles
 import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import plotnine_examples as pe
 
 from mpl_toolkits.basemap import Basemap
 from matplotlib import cm
+
 
 
 #import gmplot
@@ -97,24 +98,24 @@ ax.set_xticklabels(Station_wday_count["start_wday"])
 ax.yaxis.set_ticks(np.arange(1, 5.5, 1))
 ax.set_yticklabels(Station_wday_count["city"])
 
-logging.info("show trip in geographic map(geomap)")
+logging.info("show trip in geographic map(geomap), EBD....")
 Trip_map = Station_trip.groupby(["long", "lat", "zip_code"]).size().reset_index(name="count")
-
-lb_long, lb_lat, rt_long, rt_lat = -122.4990, 37.31072, -121.7800, 37.88100
-lon_c = float(lb_long + rt_long) / 2.0
-lat_c = float(lb_lat + rt_lat) / 2.0
-
-
-fig = plt.figure()
-ax = plt.gca()
-m = Basemap(resolution='i', lon_0=lon_c, lat_0=lat_c, llcrnrlon=lb_long,llcrnrlat=lb_lat,urcrnrlon= rt_long,urcrnrlat=rt_lat)
-x, y = m(Trip_map['long'].values, Trip_map['lat'].values)
-m.scatter(x, y,markersize=Trip_map['count'].values)
-m.plot(x,y, )
-m.drawcounties()
-m.drawstates()
-m.drawcounties()
-m.fillcontinents()
+#
+# lb_long, lb_lat, rt_long, rt_lat = -122.4990, 37.31072, -121.7800, 37.88100
+# lon_c = float(lb_long + rt_long) / 2.0
+# lat_c = float(lb_lat + rt_lat) / 2.0
+#
+#
+# fig = plt.figure()
+# ax = plt.gca()
+# m = Basemap(resolution='i', lon_0=lon_c, lat_0=lat_c, llcrnrlon=lb_long,llcrnrlat=lb_lat,urcrnrlon= rt_long,urcrnrlat=rt_lat)
+# x, y = m(Trip_map['long'].values, Trip_map['lat'].values)
+# m.scatter(x, y,markersize=Trip_map['count'].values)
+# m.plot(x,y, )
+# m.drawcounties()
+# m.drawstates()
+# m.drawcounties()
+# m.fillcontinents()
 
 
 Station_trip.rename(columns={ "lat": "start_lat", "long": "start_long"}, inplace=True)
@@ -126,11 +127,11 @@ Station_trip_sf = Station_trip[Station_trip["city"]=="San Francisco"]
 Road_df = pd.merge(Station_trip_sf[["id","start_station_id", "start_lat", "start_long","city"]], End_station_trip[["id","end_station_id","end_lat", "end_long","city"]]
                    , how="inner", on = "id", suffixes=[".x",".y"] )
 
+logging.info(" show route map, tbd...")
+Road_df_count= Road_df.groupby(["start_lat", "start_long", "end_lat", "end_long"]).size().reset_index(name="count")
 
+#Road_df.plot.scatter(x="start_long", y="start_lat",
+    #s=Road_df['count']/10#, label="population",  c="median_house_value", cmap=plt.get_cmap("jet"), colorbar=True, alpha=0.4 , figsize=(10,7),                )
+#plt.show()
 
-
-Road_df_count=Road_df.groupby("")
-Road_df.plot.scatter(x="start_long", y="start_lat",
-    #s=Road_df['count']/10#, label="population",  c="median_house_value", cmap=plt.get_cmap("jet"), colorbar=True, alpha=0.4 , figsize=(10,7),
-                     )
-plt.show()
+logging.info("weather data processing")

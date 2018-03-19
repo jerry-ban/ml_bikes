@@ -66,6 +66,7 @@ def process_df_date_col_station(df, stage =1):
 
 def process_df_date_col_weather(df, stage =1):
     df["date"] = pd.to_datetime(df["date"])
+    df["events"].fillna("Normal", inplace=True) #set missing value as normal
     return df
 
 def process_df_date_col(df):
