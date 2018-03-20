@@ -135,6 +135,8 @@ Road_df_count= Road_df.groupby(["start_lat", "start_long", "end_lat", "end_long"
 #plt.show()
 
 logging.info("weather data processing")
+#fill in median value for all columns' missing
+
 Weather.plot(x="date", y="max_sea_level_pressure_inches")
 zip_city_match = Station_trip.groupby(["zip_code", "city"]).size().reset_index(name="count")
 Weather["city"] = Weather["zip_code"].map(dict(zip(zip_city_match["zip_code"], zip_city_match["city"])))
@@ -148,4 +150,34 @@ Trip_num= pd.merge(Trip, Station_name, how = "inner", left_on = "start_station_n
 Trip_num = Trip_num.groupby(["date", "city", "start_hour"]).size().reset_index(name="count")
 
 df_v2 = pd.merge(Trip_num, Weather, how = "left", on =["date","city"])
-df_v2["count"].plot.hist()
+df_v2[["count"]].plot.hist()
+df_v2.drop("zip_code", axis = 1,  inplace=True) # only keep cities, since we only choose 5 zipcode and one for each city
+
+
+
+#############
+logging.info("preparing data for Machine Learning Training...")
+df_v2_dummies = pd.get_dummies(df_v2, columns = ["year", "month", "wday", "start_hour", "city","events"])
+
+train_source = df_v2_dummies[df_v2_dummies["date"] < "2015-03-31"]
+len(train_source)*1.0/len(df_v2)
+train_source.shape
+
+test_source =  df_v2_dummies[df_v2_dummies["date"] >= "2015-03-31"]
+
+X_train = train_source.drop(["date", "count"], axis =1)
+y_train =train_source["count"]
+X_test = test_source.drop(["date", "count"], axis =1)
+y_test =test_source["count"]
+
+##########*** OLM model ***##########
+from sklearn import linear_model
+l_m = linear_model.LinearRegression()
+l_m.fit(X_train, y_train)
+l_m.score(X_test, y_train)
+
+
+from sklearn.model_selection import train_test_split
+
+train_data = df_v2
+#df_v2$day <- as.factor(df_v2$day)

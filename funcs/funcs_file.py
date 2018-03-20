@@ -72,14 +72,22 @@ def process_df_date_col_weather(df, stage =1):
 
     df['precipitation_inches'].replace("T", np.nan, inplace=True)
     df['precipitation_inches'] = df['precipitation_inches'].astype(float)
-    df= pd.merge(df, df.groupby('date')['precipitation_inches'].mean().reset_index(name="precipitation_median"),
+    df= pd.merge(df, df.groupby('date')['precipitation_inches'].median().reset_index(name="precipitation_median"),
                              how = "inner", on = "date")
     df.loc[df['precipitation_inches'].isnull(),"precipitation_inches"] = df["precipitation_median"]
     df['precipitation_inches'].fillna(0, inplace=True)
 
-    df = pd.merge(df, df.groupby('date')['max_gust_speed_mph'].mean().reset_index(name="gust_median"),how="inner", on="date")
+    df = pd.merge(df, df.groupby('date')['max_gust_speed_mph'].median().reset_index(name="gust_median"),how="inner", on="date")
     df.loc[df['max_gust_speed_mph'].isnull(),"max_gust_speed_mph"] = df["gust_median"]
     df['max_gust_speed_mph'].fillna(0, inplace=True)
+
+    # df_median.isnull().sum()  # to check if someday has null for all zipcodes
+    df_median = df.groupby("date").agg("median")
+    df_median.drop("zip_code",axis=1, inplace=True)
+    df.update(df_median, isnull()
+
+    df.set_index("date", inplace=True)
+    df[df.isnull()] = df_median
 
     df["month"] = df["date"].dt.month
     df["wday"] = df["date"].dt.weekday_name
