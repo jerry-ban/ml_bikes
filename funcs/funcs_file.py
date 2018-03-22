@@ -70,8 +70,19 @@ def process_df_date_col_weather(df, stage =1):
     df["events"].fillna("Normal", inplace=True) #set missing value as normal
     df['events'].replace("rain", "Rain", inplace=True)
 
+    df.dropna(axis=1, how='all', inplace=True) # drop columns if all values are 0, means no information useful from that column
+
+    df_median = df.groupby("date").agg("median") # auto set index as date
+    ds_median_all = df.median().to_dict()
+    # cols_to_drop = ds_median_all[ds_median_all.isnull()].index.tolist()
+    # df_median.drop(cols_to_drop, axis=1, inplace=True)  # drop columns with all na
+    for col in df_median.columns:
+        df_median.loc[df_median[col].isnull(), col] = ds_median_all[col]
+    #df_median.loc[ df_median.isnull()] = pd.DataFrame(data =ds_median_all, index = [0])
+
     df['precipitation_inches'].replace("T", np.nan, inplace=True)
     df['precipitation_inches'] = df['precipitation_inches'].astype(float)
+
     df= pd.merge(df, df.groupby('date')['precipitation_inches'].median().reset_index(name="precipitation_median"),
                              how = "inner", on = "date")
     df.loc[df['precipitation_inches'].isnull(),"precipitation_inches"] = df["precipitation_median"]
@@ -81,18 +92,20 @@ def process_df_date_col_weather(df, stage =1):
     df.loc[df['max_gust_speed_mph'].isnull(),"max_gust_speed_mph"] = df["gust_median"]
     df['max_gust_speed_mph'].fillna(0, inplace=True)
 
+    df.loc[df['gust_median'].isnull(), "gust_median"] = ds_median_all.get("max_gust_speed_mph", 0)
     # df_median.isnull().sum()  # to check if someday has null for all zipcodes
-    df_median = df.groupby("date").agg("median")
+
+
     df_median.drop("zip_code",axis=1, inplace=True)
-    df.update(df_median, isnull()
 
     df.set_index("date", inplace=True)
-    df[df.isnull()] = df_median
+    df.update(df_median, join="left", overwrite=True, filter_func=pd.isnull) # assign
 
-    df["month"] = df["date"].dt.month
-    df["wday"] = df["date"].dt.weekday_name
-    df["year"] = df["date"].dt.year
-    df["day"] = df["date"].dt.day
+    df.reset_index(inplace=True)
+    df["month"] = df['date'].dt.month
+    df["wday"] = df['date'].dt.weekday_name
+    df["year"] = df['date'].dt.year
+    df["day"] = df['date'].dt.day
     cal = calendar()
     holidays = cal.holidays(start=df["date"].min(), end=df["date"].max(), return_name=True)
     df['isholiday'] = df['date'].isin(holidays.index)
@@ -100,6 +113,3 @@ def process_df_date_col_weather(df, stage =1):
     #weather = weather %>% group_by(max_wind_Speed_mph) %>% mutate(gust_median = median(max_gust_speed_mph, na.rm=T))
     return df
 
-def process_df_date_col(df):
-
-    return df

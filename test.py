@@ -16,15 +16,17 @@ from matplotlib import cm
 #import gmplot
 
 from sklearn.preprocessing import MinMaxScaler
+zip_filters = [94107,94063,94301,94041,95113]
 
 file_trip = "trip.csv"
 file_station = "station.csv"
 file_weather = "weather.csv"
 file_list = [file_trip, file_station, file_weather]
 # rows: 669959,70, 3665
-Trip, Station,Weather = iofiles.get_df_from_files(file_list, n_rows =[10**5,None, None])
+Trip, Station,Weather = iofiles.get_df_from_files(file_list, n_rows =[None,None, None])
 #Trip, Station,Weather = iofiles.get_df_from_files(file_list)
 Trip = iofiles.process_df_date_col_trip(Trip, stage =1)
+Trip = Trip[Trip["zip_code"].isin([str(x) for x in zip_filters])]
 Station = iofiles.process_df_date_col_station(Station, stage =1)
 Weather = iofiles.process_df_date_col_weather(Weather, stage =1)
 
@@ -93,10 +95,12 @@ city_map = {'Mountain View':1, 'Palo Alto':2, 'Redwood City':3, 'San Francisco':
 Station_wday_count["city_num"] = Station_wday_count["city" ].map(city_map)
 plt.figure()
 ax = plt.gca()
-Station_wday_count.plot.scatter(x="wday", y="city_num", s=Station_wday_count["count"]/10, title = "city vs weekday" )
-ax.set_xticklabels(Station_wday_count["start_wday"])
+Station_wday_count.plot.scatter(ax=ax, x="wday", y="city_num", s=Station_wday_count["count"]/10, title = "city vs weekday" )
+ax.xaxis.set_ticks(np.arange(1, 7.5, 1))
+ax.set_xticklabels(sorted([x for x in wday_map.keys()], key= lambda x: wday_map[x]))
 ax.yaxis.set_ticks(np.arange(1, 5.5, 1))
-ax.set_yticklabels(Station_wday_count["city"])
+#ax.set_yticklabels(Station_wday_count["city"])
+ax.set_yticklabels(sorted([x for x in city_map.keys()], key= lambda x: city_map[x]))
 
 logging.info("show trip in geographic map(geomap), EBD....")
 Trip_map = Station_trip.groupby(["long", "lat", "zip_code"]).size().reset_index(name="count")
@@ -137,10 +141,13 @@ Road_df_count= Road_df.groupby(["start_lat", "start_long", "end_lat", "end_long"
 logging.info("weather data processing")
 #fill in median value for all columns' missing
 
+
 Weather.plot(x="date", y="max_sea_level_pressure_inches")
 zip_city_match = Station_trip.groupby(["zip_code", "city"]).size().reset_index(name="count")
-Weather["city"] = Weather["zip_code"].map(dict(zip(zip_city_match["zip_code"], zip_city_match["city"])))
+zip_city_match = zip_city_match[zip_city_match["zip_code"].isin([str(x) for x in zip_filters])]
 
+Weather["city"] = Weather["zip_code"].map(dict(zip(zip_city_match["zip_code"], zip_city_match["city"])))
+Weather.dropna(subset=["city"], inplace = True)
 
 logging.info("weather data processing")
 Station_name= Station[["name", "city"]]
@@ -149,11 +156,12 @@ Station_name.clumns=["start_station_name","city"]
 Trip_num= pd.merge(Trip, Station_name, how = "inner", left_on = "start_station_name", right_on="name")
 Trip_num = Trip_num.groupby(["date", "city", "start_hour"]).size().reset_index(name="count")
 
-df_v2 = pd.merge(Trip_num, Weather, how = "left", on =["date","city"])
+df_v2 = pd.merge(Trip_num, Weather, how = "inner", on =["date","city"])
 df_v2[["count"]].plot.hist()
 df_v2.drop("zip_code", axis = 1,  inplace=True) # only keep cities, since we only choose 5 zipcode and one for each city
 
-
+if df_v2.isnull().values.sum() >0:
+    raise Exception("NaN values exist! processing data correctly, please!")
 
 #############
 logging.info("preparing data for Machine Learning Training...")
