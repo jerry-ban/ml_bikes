@@ -17,9 +17,9 @@ def get_df_from_files(file_list, n_rows =[None, None, None]):
     # else:
     #     trip = pd.read_csv(file_trip, nrows = n_rows[0], header=0, parse_dates=["start_date", "end_date"],chunksize=10000)
     if n_rows[0] is None:
-        trip = pd.read_csv(file_trip, header=0)
+        trip = pd.read_csv(file_trip, header=0,dtype={'zip_code': "str" })
     else:
-        trip = pd.read_csv(file_trip, nrows = n_rows[0], header=0)
+        trip = pd.read_csv(file_trip, nrows = n_rows[0], header=0,dtype={'zip_code': "str"})
 
     # sys.getsizeof(df)/10**6
     # df.memory_usage(deep=True).sum() / 10**6
@@ -29,9 +29,9 @@ def get_df_from_files(file_list, n_rows =[None, None, None]):
         station = pd.read_csv(file_station, nrows = n_rows[1])
 
     if n_rows[1] is None:
-        weather = pd.read_csv(file_weather)
+        weather = pd.read_csv(file_weather,dtype={'zip_code': "str"})
     else:
-        weather = pd.read_csv(file_weather, nrows = n_rows[2])
+        weather = pd.read_csv(file_weather, nrows = n_rows[2],dtype={'zip_code': "str"})
 
     return trip, station, weather
 
@@ -43,7 +43,7 @@ def process_df_date_col_trip(df, stage =1):
     df["date_num"] = (df["date"] - df["date"].min()).astype("timedelta64[D]")
 
     df["start_month"] = df["start_date"].dt.month
-    #df["start_wday"] = df["start_date"].dt.weekday #TBD will convert to labels
+    df["start_day"] = df["start_date"].dt.day
     df["start_wday"] = df["start_date"].dt.weekday_name
     df["start_hour"] = df["start_date"].dt.hour
     df["end_month"] = df["end_date"].dt.month
@@ -95,8 +95,7 @@ def process_df_date_col_weather(df, stage =1):
     df.loc[df['gust_median'].isnull(), "gust_median"] = ds_median_all.get("max_gust_speed_mph", 0)
     # df_median.isnull().sum()  # to check if someday has null for all zipcodes
 
-
-    df_median.drop("zip_code",axis=1, inplace=True)
+    #df_median.drop("zip_code",axis=1, inplace=True)
 
     df.set_index("date", inplace=True)
     df.update(df_median, join="left", overwrite=True, filter_func=pd.isnull) # assign
