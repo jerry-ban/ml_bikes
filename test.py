@@ -150,24 +150,27 @@ Weather.plot(x="date", y="max_sea_level_pressure_inches")
 #Weather.dropna(subset=["city"], inplace = True)
 
 logging.info("weather data processing")
-Station_name= Station[["name", "city"]]
+Station_name= Station[["name", "city"]].copy()
 Station_name.clumns=["start_station_name","city"]
 
 Trip_num= pd.merge(Trip, Station, how = "inner", left_on = "start_station_name", right_on="name")
-Trip_num = Trip_num.groupby(["date", "zip_code", "start_hour"]).size().reset_index(name="count")
-Trip_num = Trip_num.groupby(["date", "zip_code", "start_month", "start_day", "start_wday",  "start_hour",is_weekend, ]).size().reset_index(name="count")
+#Trip_num = Trip_num.groupby(["date", "zip_code", "start_hour"]).size().reset_index(name="count")
+Trip_num = Trip_num.groupby(["date", "zip_code", "start_month", "start_day", "start_wday",  "start_hour", "is_weekend" ]).size().reset_index(name="count")
 
 df_station_weather = pd.merge(Trip_num, Weather, how = "inner", left_on =["date","zip_code"], right_on =["date", "zip_code"])
-df_v2 = df_station_weather.groupby()
+df_v2 = df_station_weather.drop(['month', 'wday','day'], axis =1)
 df_v2[["count"]].plot.hist()
-df_v2.drop("zip_code", axis = 1,  inplace=True) # only keep cities, since we only choose 5 zipcode and one for each city
+plt.figure()
+df_v2["start_month"].plot.hist(bins=12)
+df_v2["is_weekend"] = df_v2["is_weekend"].map({"weekend": 1, "weekday": 0})
+#df_v2.drop("zip_code", axis = 1,  inplace=True) # only keep cities, since we only choose 5 zipcode and one for each city
 
 if df_v2.isnull().values.sum() >0:
     raise Exception("NaN values exist! processing data correctly, please!")
 
 #############
 logging.info("preparing data for Machine Learning Training...")
-df_v2_dummies = pd.get_dummies(df_v2, columns = ["year", "month", "wday", "start_hour", "city","events"])
+df_v2_dummies = pd.get_dummies(df_v2, columns = ["year", "start_month", "start_day",  "start_wday", "start_hour", "zip_code","events"])
 
 train_source = df_v2_dummies[df_v2_dummies["date"] < "2015-03-31"]
 len(train_source)*1.0/len(df_v2)
@@ -177,14 +180,25 @@ test_source =  df_v2_dummies[df_v2_dummies["date"] >= "2015-03-31"]
 
 X_train = train_source.drop(["date", "count"], axis =1)
 y_train =train_source["count"]
+train_date = train_source["date"]
 X_test = test_source.drop(["date", "count"], axis =1)
 y_test =test_source["count"]
-
+test_date=test_source["date"]
 ##########*** OLM model ***##########
+import statsmodels.api as sm
+olm = sm.OLS(y_train, X_train).fit()
+olm = sm.OLS(y_train, X_train.astype(float)).fit()
+y_hat = olm.predict(X_train)
+ax = plt.gca()
+ax.plot()
+
 from sklearn import linear_model
 l_m = linear_model.LinearRegression()
 l_m.fit(X_train, y_train)
-l_m.score(X_test, y_train)
+l_m.score(X_test, y_test)
+score_list ={"OLM": l_m.score(X_test, y_test) }
+
+sns.lmplot('date_num', 'count', hue = "is_weekend", data= isweekend_date, fit_reg= False)  # row="sex", col="time" then it's chart matrix
 
 
 from sklearn.model_selection import train_test_split
