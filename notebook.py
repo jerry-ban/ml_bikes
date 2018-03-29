@@ -65,5 +65,30 @@ df = weather.merge(trip.drop('weekday', axis=1), on=['date', 'zip_code'], how='l
 df.head()
 
 df = df[df.duration.notnull()]
+
+#normalize data
 df_dur = df.drop(['date', 'events', 'zip_code', 'start_date', 'start_station_name', 'start_station_id', 'weekday',
                   'end_date', 'end_station_name', 'end_station_id', 'bike_id', 'subscription_type', 'datetime', 'month', 'hour'], axis=1)
+stdc_dur = StandardScaler()
+tmp_df_dur = df_dur.drop(['Fog-Rain', 'Rain', 'Rain-Thunderstorm'], axis=1)
+tmp_df_dur = tmp_df_dur.fillna(method='ffill')
+df_dur_std = pd.DataFrame(stdc_dur.fit_transform(tmp_df_dur), columns=tmp_df_dur.columns, index = df_dur.index)
+for c in tmp_df_dur.columns:
+    df_dur[c] = df_dur_std[c]
+df_weekday = pd.get_dummies(df.weekday, drop_first=True, prefix='weekday_')
+df_month = pd.get_dummies(df.month, drop_first=True, prefix='month_')
+df_hour = pd.get_dummies(df.hour, drop_first=True, prefix='hour_')
+df_subscription_type = pd.get_dummies(df.subscription_type, drop_first=True)
+
+df_dur = pd.concat([df_dur, df_weekday, df_month, df_hour, df_subscription_type], axis=1)
+df_dur.index = df.date
+df_dur.head()
+
+df_dur_train = df_dur.iloc[:91153,:]
+df_dur_test = df_dur.iloc[91153:,:]
+
+plt.figure()
+df.weekday.hist(bins=7)
+
+plt.figure()
+df.month.hist(bins=12)
