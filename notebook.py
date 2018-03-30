@@ -45,7 +45,7 @@ trip["zip_code"] = trip.zip_code.astype(str)
 
 trip = trip[trip.duration<=60*60]
 
-print(trip.head())
+print(trip.shape)
 
 weather.index = pd.to_datetime(weather.date)
 weather['date'] = list(getDate(weather.index))
@@ -87,8 +87,81 @@ df_dur.head()
 df_dur_train = df_dur.iloc[:91153,:]
 df_dur_test = df_dur.iloc[91153:,:]
 
+###charts
 plt.figure()
 df.weekday.hist(bins=7)
 
 plt.figure()
 df.month.hist(bins=12)
+
+plt.figure()
+df.hour.hist(bins=24)
+
+dur = df.duration / 60
+plt.figure()
+dur.hist(bins=60)
+
+plt.figure()
+df.plot.scatter('mean_temperature_f', 'duration')
+
+df.events.value_counts().plot.bar()
+
+tmp_df = df[['hour', 'duration']].dropna()
+tmp_df['hour'] = tmp_df['hour'].astype(int)
+sns.boxplot(x='hour', y='duration', data=tmp_df)
+
+freq_trip = trip.groupby(['date','zip_code', 'start_station_id']).size()
+freq_trip.rename('cnt', inplace=True)
+freq_trip = freq_trip.to_frame().reset_index()
+df2 = weather.merge(freq_trip, on=['date', 'zip_code'], how='left')
+
+df2.start_station_id = df2.start_station_id.fillna(0)
+df2.start_station_id = df2.start_station_id.astype(int)
+
+df2.cnt = df2.cnt.fillna(0)
+
+df2['month'] = list(getMonth(df2['date']))
+
+df2.head()
+df2.shape
+
+df_cnt = df2.drop(['date', 'events', 'zip_code', 'start_station_id', 'weekday', 'month'], axis=1)
+
+stdc_cnt = StandardScaler()
+tmp_df_cnt = df_cnt.drop(['Fog-Rain', 'Rain', 'Rain-Thunderstorm'], axis=1)
+tmp_df_cnt = tmp_df_cnt.fillna(method='ffill')
+df_cnt_std = pd.DataFrame(stdc_cnt.fit_transform(tmp_df_cnt), columns=tmp_df_cnt.columns, index = df_cnt.index)
+
+for c in tmp_df_cnt.columns:
+    df_cnt[c] = df_cnt_std[c]
+
+# get dummy variables
+df_weekday = pd.get_dummies(df2.weekday, drop_first=True, prefix='weekday_')
+df_month = pd.get_dummies(df2.month, drop_first=True, prefix='month_')
+df_start_station_id = pd.get_dummies(df2.start_station_id, drop_first=True, prefix='start_station_id_')
+
+df_cnt = pd.concat([df_cnt, df_weekday, df_month, df_start_station_id], axis=1)
+df_cnt.index = df2.date
+df_cnt.head()
+
+#ML data processing
+X, Y = df_cnt.drop('cnt', axis=1).values, df_cnt['cnt'].values
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3)
+
+df_cnt_train = pd.DataFrame(X_train, columns= df_cnt.columns.drop('cnt'))
+df_cnt_train['cnt'] = Y_train
+
+df_cnt_test = pd.DataFrame(X_test, columns= df_cnt.columns.drop('cnt'))
+df_cnt_test['cnt'] = Y_test
+
+
+df_cnt_train = df_cnt.iloc[:32531,:]
+df_cnt_test = df_cnt.iloc[32531:,:]
+
+df2.cnt.hist(bins=30)
+
+tmp_df2 = df2.drop(['date', 'events', 'zip_code'], axis=1).fillna(method='ffill')
+tmp_df2.head()
+
+sns.heatmap(df_cnt.corr())
+
