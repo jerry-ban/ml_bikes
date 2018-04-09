@@ -55,7 +55,7 @@ weather.precipitation_inches = weather.precipitation_inches.replace("T", 0.01)
 weather.precipitation_inches = weather.precipitation_inches.astype(float)
 
 weather.zip_code = weather.zip_code.astype(str)
-
+# change events to categorical variables
 tmp_weather = pd.get_dummies(weather.events, drop_first=True)
 tmp_weather['Rain'] = tmp_weather.Rain + tmp_weather.rain
 weather = pd.concat([tmp_weather, weather],axis=1)
@@ -99,16 +99,16 @@ df.hour.hist(bins=24)
 
 dur = df.duration / 60
 plt.figure()
-dur.hist(bins=60)
+dur.plot.hist(bins=60)
 
 plt.figure()
-df.plot.scatter('mean_temperature_f', 'duration')
+df.plot.scatter('mean_temperature_f', 'duration', title="mean_temp vs duration")
 
 df.events.value_counts().plot.bar()
 
 tmp_df = df[['hour', 'duration']].dropna()
 tmp_df['hour'] = tmp_df['hour'].astype(int)
-sns.boxplot(x='hour', y='duration', data=tmp_df)
+sns.boxplot(x='hour', y='duration', data=tmp_df).set_title("counts vs hour time")
 
 freq_trip = trip.groupby(['date','zip_code', 'start_station_id']).size()
 freq_trip.rename('cnt', inplace=True)
@@ -125,17 +125,20 @@ df2['month'] = list(getMonth(df2['date']))
 df2.head()
 df2.shape
 
+# remove categorical variables
 df_cnt = df2.drop(['date', 'events', 'zip_code', 'start_station_id', 'weekday', 'month'], axis=1)
 
-stdc_cnt = StandardScaler()
 tmp_df_cnt = df_cnt.drop(['Fog-Rain', 'Rain', 'Rain-Thunderstorm'], axis=1)
 tmp_df_cnt = tmp_df_cnt.fillna(method='ffill')
-df_cnt_std = pd.DataFrame(stdc_cnt.fit_transform(tmp_df_cnt), columns=tmp_df_cnt.columns, index = df_cnt.index)
 
-for c in tmp_df_cnt.columns:
-    df_cnt[c] = df_cnt_std[c]
+cols_to_be_scaled = tmp_df_cnt.columns.drop("cnt")
+# stdc_cnt = StandardScaler()
+# df_cnt_std = pd.DataFrame(stdc_cnt.fit_transform(tmp_df_cnt), columns=tmp_df_cnt.columns, index = df_cnt.index)
+#
+# for c in tmp_df_cnt.columns:
+#     df_cnt[c] = df_cnt_std[c]
 
-# get dummy variables
+# get dummy variables from categorical variables, except zip
 df_weekday = pd.get_dummies(df2.weekday, drop_first=True, prefix='weekday_')
 df_month = pd.get_dummies(df2.month, drop_first=True, prefix='month_')
 df_start_station_id = pd.get_dummies(df2.start_station_id, drop_first=True, prefix='start_station_id_')
@@ -143,11 +146,27 @@ df_start_station_id = pd.get_dummies(df2.start_station_id, drop_first=True, pref
 df_cnt = pd.concat([df_cnt, df_weekday, df_month, df_start_station_id], axis=1)
 df_cnt.index = df2.date
 df_cnt.head()
+df_cnt.loc[:, cols_to_be_scaled]=df_cnt[cols_to_be_scaled].fillna(method='ffill')
 
 #ML data processing
-X, Y = df_cnt.drop('cnt', axis=1).values, df_cnt['cnt'].values
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3)
+df_X, df_Y = df_cnt.drop('cnt', axis=1), df_cnt[['cnt']]
+df_X_train_o, df_X_test_o, df_Y_train_o, df_Y_test_o = train_test_split(df_X, df_Y, test_size=0.3)
+X_train_o, X_test_o, Y_train_o, Y_test_o =df_X_train_o.values, df_X_test_o.values, df_Y_train_o.values, df_Y_test_o.values
 
+stdc_x = StandardScaler()
+df_X_train=df_X_train_o.copy()
+df_X_train.loc[:, cols_to_be_scaled] = stdc_x.fit_transform(df_X_train_o[cols_to_be_scaled])
+df_X_test=df_X_test_o.copy()
+df_X_test.loc[:, cols_to_be_scaled] = stdc_x.fit_transform(df_X_test_o[cols_to_be_scaled])
+X_train = df_X_train.values
+X_test=df_X_test.values
+Y_train = df_Y_train_o.cnt.values
+Y_test = df_Y_test_o.cnt.values
+
+#
+# for c in tmp_df_cnt.columns:
+#     df_cnt[c] = df_cnt_std[c]
+## can skip the followin chart section, directly go to regression parts
 df_cnt_train = pd.DataFrame(X_train, columns= df_cnt.columns.drop('cnt'))
 df_cnt_train['cnt'] = Y_train
 
@@ -158,10 +177,40 @@ df_cnt_test['cnt'] = Y_test
 df_cnt_train = df_cnt.iloc[:32531,:]
 df_cnt_test = df_cnt.iloc[32531:,:]
 
+plt.figure()
 df2.cnt.hist(bins=30)
 
 tmp_df2 = df2.drop(['date', 'events', 'zip_code'], axis=1).fillna(method='ffill')
 tmp_df2.head()
 
+plt.figure()
 sns.heatmap(df_cnt.corr())
+
+## regression
+import statsmodels.api as sm
+X_ols = sm.add_constant(X_train)
+ols_model = sm.OLS(Y_train, X_ols).fit()
+ols_pred = ols_model.predict(sm.add_constant(X_test)) # make the predictions by the model
+ols_model.summary()
+
+plt.figure()
+output_chart = df_Y_test_o.copy()
+output_chart.rename({"cnt": "actual"}, inplace = True)
+output_chart["Predicted"] = pd.Series(data = ols_pred)
+ax1 = output_chart.actual.groupby(level = 0).plot(color = "red", grid = True, lable = "True")
+ax2 = output_chart.predicted.groupby(level = 0).plot(color = "blue", grid = True, lable = "Predict")
+
+
+# OLM result:
+from sklearn import linear_model, model_selection
+sk_lmr = linear_model.LinearRegression()
+sk_lmr.fit(X_train, Y_train)
+scores = model_selection.cross_val_score(sk_lmr, X_train, Y_train, cv=5)
+
+sk_lmr.fit(X_train, Y_train)
+sk_lmr.score(X_test, Y_test)
+Y_pred = sk_lmr.predict(X_test)
+
+
+
 
