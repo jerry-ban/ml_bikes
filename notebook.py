@@ -72,18 +72,20 @@ ax1 = output_test_group.actual.plot(color = "red",  grid = True, label = "True")
 ax2 = output_test_group.predicted.plot(color = "blue", grid = True, label = "Predict")
 h1, l1 = ax1.get_legend_handles_labels()
 h2, l2 = ax2.get_legend_handles_labels()
-plt.legend(h1+h2, l1+l2, loc=2)
+plt.legend(h1, l1, loc=2) #plt.legend(h1+h1, l1+l2, loc=2)
 plt.show()
 
-# OLM result:
+# ML linear regression result:
 from sklearn import linear_model, model_selection
 sk_lmr = linear_model.LinearRegression()
 sk_lmr.fit(df_X_train, df_Y_train.cnt)
 scores = model_selection.cross_val_score(sk_lmr, df_X_train, df_Y_train.cnt, cv=5)
 
-sk_lmr.fit(X_train, Y_train)
-sk_lmr.score(X_test, Y_test)
-Y_pred = sk_lmr.predict(X_test)
+sk_lmr.fit(df_X_train, df_Y_train.cnt)
+Y_pred = sk_lmr.predict(df_X_test)
+sk_lmr.score(df_X_test, df_Y_test.cnt)
+
+
 
 
 
