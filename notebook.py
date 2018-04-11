@@ -52,7 +52,7 @@ df_X_test["const"] = 1.0
 
 ## regression
 import statsmodels.api as sm
-ols_model = sm.OLS(df_Y_train.cnt,  df_X_train).fit()
+ols_model = sm.OLS(df_Y_train.cnt,  df_X_train).fit() #here can use sm.add_constant(X) if X not include the intercept
 y_pred_train = ols_model.predict(df_X_train) # make the predictions by the model
 y_pred_test = ols_model.predict(df_X_test)
 ols_model.summary()  # R2= 0.094
